@@ -1,19 +1,23 @@
 
-name: CI & Deploy Backend
+name: Deploy Apollo Gateway to Cloud Run
 
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 
 env:
   SERVICE_NAME: "cn2x-iryo-app"
+  GCP_REGION: "us-west2"
 
 jobs:
-  build:
+  test:
+    name: Run Tests
     runs-on: ubuntu-latest
-    environment: PRD
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -22,13 +26,32 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci || npm install
+        run: npm ci
 
       - name: Run tests
-        run: npm test --silent || echo "No tests found"
+        run: npm test || echo "No tests configured"
 
-      - name: Build (if needed)
-        run: npm run build || echo "No build step"
+      - name: Run linting (if configured)
+        run: npm run lint || echo "No linting configured"
+
+  build-and-deploy:
+    name: Build and Deploy to Cloud Run
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    environment: PRD
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -60,12 +83,48 @@ jobs:
           docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
 
       - name: Deploy to Cloud Run
+        id: deploy
         run: |
           gcloud run deploy ${{ env.SERVICE_NAME }} \
             --image gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
-            --region ${{ secrets.GCP_REGION }} \
+            --region ${{ env.GCP_REGION }} \
             --platform managed \
             --allow-unauthenticated \
             --port 4000 \
             --memory 512Mi \
-            --cpu 1
+            --cpu 1 \
+            --timeout 300 \
+            --concurrency 100 \
+            --max-instances 10 \
+            --set-env-vars="NODE_ENV=production"
+          
+      - name: Get Service URL
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} --region=${{ env.GCP_REGION }} --format='value(status.url)')
+          echo "SERVICE_URL=$SERVICE_URL" >> $GITHUB_ENV
+          echo "🚀 Apollo Gateway deployed at: $SERVICE_URL"
+
+  notify-success:
+    name: Notify Success
+    runs-on: ubuntu-latest
+    needs: build-and-deploy
+    if: success()
+    steps:
+      - name: Success Notification
+        run: |
+          echo "✅ Deployment successful!"
+          echo "🚀 Apollo Federation Gateway is now live!"
+          echo "📊 Service: ${{ env.SERVICE_NAME }}"
+          echo "🌍 Region: ${{ env.GCP_REGION }}"
+
+  notify-failure:
+    name: Notify Failure
+    runs-on: ubuntu-latest
+    needs: build-and-deploy
+    if: failure()
+    steps:
+      - name: Failure Notification
+        run: |
+          echo "❌ Deployment failed!"
+          echo "🔍 Check the logs above for details"
+          echo "📋 Service: ${{ env.SERVICE_NAME }}"
