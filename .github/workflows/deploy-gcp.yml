@@ -55,11 +55,6 @@ jobs:
         run: |
           docker build -t gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} .
 
-      - name: Verify GCR access
-        run: |
-          echo "Checking GCR access..."
-          gcloud container images list --repository=gcr.io/${{ env.PROJECT_ID }} || echo "No images found or permission issue"
-
       - name: Push Docker image to GCR
         run: |
           docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
@@ -70,4 +65,7 @@ jobs:
             --image gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
             --region ${{ secrets.GCP_REGION }} \
             --platform managed \
-            --allow-unauthenticated
+            --allow-unauthenticated \
+            --port 4000 \
+            --memory 512Mi \
+            --cpu 1
