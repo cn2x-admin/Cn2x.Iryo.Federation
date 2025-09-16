@@ -47,56 +47,50 @@ jobs:
           project_id: ${{ env.PROJECT_ID }}
           export_default_credentials: true
 
-      - name: Create Artifact Registry repository (if not exists)
+      - name: Enable required APIs
         run: |
-          gcloud artifacts repositories create cn2x-iryo-repo \
-            --repository-format=docker \
-            --location=us \
-            --description="Docker repository for cn2x-iryo-app" || echo "Repository already exists"
+          echo "Enabling required Google Cloud APIs..."
+          gcloud services enable artifactregistry.googleapis.com || echo "Could not enable Artifact Registry API"
+          gcloud services enable run.googleapis.com || echo "Could not enable Cloud Run API"
+          gcloud services enable containerregistry.googleapis.com || echo "Could not enable Container Registry API"
 
       - name: Grant permissions to service account
         run: |
           SERVICE_ACCOUNT="cn2x-github-action@${{ env.PROJECT_ID }}.iam.gserviceaccount.com"
           
-          # Artifact Registry Writer
-          gcloud projects add-iam-policy-binding ${{ env.PROJECT_ID }} \
-            --member="serviceAccount:$SERVICE_ACCOUNT" \
-            --role="roles/artifactregistry.writer" || echo "Permission already exists"
+          echo "Granting permissions to: $SERVICE_ACCOUNT"
           
-          # Cloud Run Developer
+          # Storage Admin for GCR (more basic)
           gcloud projects add-iam-policy-binding ${{ env.PROJECT_ID }} \
             --member="serviceAccount:$SERVICE_ACCOUNT" \
-            --role="roles/run.developer" || echo "Permission already exists"
+            --role="roles/storage.admin" || echo "Permission already exists or insufficient rights"
           
-          # Service Account User
+          # Cloud Run Admin
           gcloud projects add-iam-policy-binding ${{ env.PROJECT_ID }} \
             --member="serviceAccount:$SERVICE_ACCOUNT" \
-            --role="roles/iam.serviceAccountUser" || echo "Permission already exists"
+            --role="roles/run.admin" || echo "Permission already exists or insufficient rights"
 
-      - name: Configure Docker for Artifact Registry
+      - name: Configure Docker for GCR
         run: |
-          gcloud auth configure-docker us-docker.pkg.dev
+          gcloud auth configure-docker gcr.io
 
       - name: Build Docker image
         run: |
-          docker build -t us-docker.pkg.dev/${{ env.PROJECT_ID }}/cn2x-iryo-repo/${{ env.SERVICE_NAME }}:${{ github.sha }} .
+          docker build -t gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} .
 
-      - name: Verify permissions before push
+      - name: Verify GCR access
         run: |
-          echo "Checking current authentication..."
-          gcloud auth list
-          echo "Current project: $(gcloud config get-value project)"
-          echo "Testing Artifact Registry access..."
-          gcloud artifacts repositories list --location=us || echo "Could not list repositories"
+          echo "Checking GCR access..."
+          gcloud container images list --repository=gcr.io/${{ env.PROJECT_ID }} || echo "No images found or permission issue"
 
-      - name: Push Docker image to Artifact Registry
+      - name: Push Docker image to GCR
         run: |
-          docker push us-docker.pkg.dev/${{ env.PROJECT_ID }}/cn2x-iryo-repo/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
 
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image us-docker.pkg.dev/${{ env.PROJECT_ID }}/cn2x-iryo-repo/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            --image gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
             --region ${{ secrets.GCP_REGION }} \
             --platform managed \
             --allow-unauthenticated
