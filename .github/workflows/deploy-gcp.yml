@@ -49,11 +49,16 @@ jobs:
 
       - name: Configure Docker for GCR 
         run: |
-          gcloud auth configure-docker
+          gcloud auth configure-docker gcr.io
 
       - name: Build Docker image
         run: |
           docker build -t gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} .
+
+      - name: Verify GCR access
+        run: |
+          echo "Checking GCR access..."
+          gcloud container images list --repository=gcr.io/${{ env.PROJECT_ID }} || echo "No images found or permission issue"
 
       - name: Push Docker image to GCR
         run: |
