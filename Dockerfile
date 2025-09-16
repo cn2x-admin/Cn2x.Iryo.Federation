@@ -1,10 +1,6 @@
 # Use imagem oficial do Node.js LTS
 FROM node:20-bullseye-slim
 
-# Cria usuário não-root para segurança
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S node -u 1001
-
 # Cria diretório de trabalho
 WORKDIR /usr/src/app
 
@@ -15,9 +11,9 @@ COPY package*.json ./
 RUN npm ci --only=production && npm cache clean --force
 
 # Copia o restante do código
-COPY --chown=node:nodejs . .
+COPY . .
 
-# Muda para usuário não-root
+# Muda para usuário node (já existe na imagem base)
 USER node
 
 # Expõe a porta do Apollo Gateway
