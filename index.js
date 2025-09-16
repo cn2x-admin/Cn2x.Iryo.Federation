@@ -13,6 +13,15 @@ async function startGateway() {
 
   const server = new ApolloServer({
     gateway,
+    // Habilita introspection e playground baseado no ambiente
+    introspection: process.env.NODE_ENV !== 'production',
+    // Em desenvolvimento, permite Apollo Studio
+    plugins: process.env.NODE_ENV !== 'production' ? [
+      require('@apollo/server/plugin/landingPage/default')({
+        embed: true,
+        graphRef: 'myGraph@current',
+      })
+    ] : [],
   });
 
   const { url } = await startStandaloneServer(server, {

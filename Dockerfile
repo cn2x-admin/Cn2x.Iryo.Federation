@@ -1,5 +1,5 @@
 # Use imagem oficial do Node.js LTS
-FROM node:20-bullseye-slim
+FROM node:22-bullseye-slim
 
 # Cria diretório de trabalho
 WORKDIR /usr/src/app

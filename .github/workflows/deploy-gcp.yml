@@ -96,7 +96,7 @@ jobs:
             --timeout 300 \
             --concurrency 100 \
             --max-instances 10 \
-            --set-env-vars="NODE_ENV=production"
+            --set-env-vars="NODE_ENV=development"
           
       - name: Get Service URL
         run: |
