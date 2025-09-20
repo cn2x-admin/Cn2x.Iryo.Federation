@@ -11,7 +11,7 @@ async function startGateway() {
       ],
     }),
   });
-//https://cn2x-iryo-ulceravenosa-api-49699051626.us-west2.run.app/
+//https://cn2x-iryo-ulceravenosa-api-49699051626.us-west2.run.app/ 
   const server = new ApolloServer({
     gateway,
   });
