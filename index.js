@@ -7,10 +7,11 @@ async function startGateway() {
     supergraphSdl: new IntrospectAndCompose({
       subgraphs: [
         { name: 'paciente', url: 'https://cn2x-iryo-paciente-api-49699051626.us-west2.run.app/graphql/' },
+        { name: 'ulcera-venosa', url: 'https://cn2x-iryo-ulceravenosa-api-49699051626.us-west2.run.app/graphql/' },
       ],
     }),
   });
-
+//https://cn2x-iryo-ulceravenosa-api-49699051626.us-west2.run.app/
   const server = new ApolloServer({
     gateway,
   });
